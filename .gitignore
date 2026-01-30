@@ -1,0 +1,41 @@
+# Node.js
+node_modules/
+.env
+*.log
+dist/
+build/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+.env/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.sqlite3
+*.db
+*.bak
+*.tmp
+
+# Frontend build
+frontend/dist/
+frontend/node_modules/
+
+# Backend build
+backend/dist/
+backend/node_modules/
+
+# NLP API
+nlp-api/__pycache__/
+nlp-api/env/
+nlp-api/venv/

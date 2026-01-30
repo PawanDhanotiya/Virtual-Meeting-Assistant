@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meeting Room</title>
+    <!-- Load Lucide Icons from CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+        line-height: 1.6;
+        color: #333;
+      }
+
+      .active {
+        background-color: #43c6ac !important;
+        color: black !important;
+      }
+      .disabled {
+        background-color: #f44336 !important;
+        color: white !important;
+      }
+      .inactive {
+        background-color: #cccccc !important;
+        color: #666666 !important;
+        cursor: not-allowed !important;
+      }
+
+      .meeting-container {
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .video-grid {
+        flex: 1;
+        transition: margin-right 0.3s;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #f0f0f0;
+        position: relative;
+      }
+
+      .video-grid.chat-open {
+        margin-right: 800px;
+      }
+
+      #localVideo {
+        max-width: 100%;
+        max-height: 70vh;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        background: #000;
+      }
+
+      .controls {
+        position: absolute;
+        bottom: 20px;
+        display: flex;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 50px;
+        z-index: 100;
+        gap: 8px;
+      }
+
+      .controls button {
+        width: 50px;
+        height: 50px;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        background: #555;
+        color: white;
+      }
+
+      .controls button:hover {
+        transform: scale(1.1);
+      }
+
+      .controls button i {
+        width: 24px;
+        height: 24px;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
+      }
+
+      .side-panel {
+        position: fixed;
+        right: 0;
+        top: 0;
+        width: 800px;
+        height: 100vh;
+        background: #cf7f7f;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        transform: translateX(100%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+      }
+
+      .side-panel.open {
+        transform: translateX(0);
+      }
+
+      .panel-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        height: calc(100% - 40px);
+        gap: 10px;
+        padding: 20px;
+        overflow: hidden;
+      }
+
+      .panel-section {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #f9f9f9;
+      }
+
+      .section-header {
+        padding: 10px 15px;
+        background: #3c97ff;
+        color: white;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .section-header h3 {
+        margin: 0;
+        font-size: 1.1em;
+      }
+
+      .section-tabs {
+        display: flex;
+        margin-top: 5px;
+      }
+
+      .section-tab {
+        padding: 5px 10px;
+        font-size: 0.8em;
+        cursor: pointer;
+        background: rgba(255, 255, 255, 0.2);
+        margin-right: 5px;
+        border-radius: 4px;
+      }
+
+      .section-tab.active {
+        background: rgba(255, 255, 255, 0.4);
+        font-weight: bold;
+      }
+
+      .section-content {
+        flex: 1;
+        padding: 10px;
+        overflow-y: auto;
+        background: white;
+      }
+
+      .tab-content {
+        display: none;
+        height: 100%;
+        overflow-y: auto;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      .section-input {
+        display: flex;
+        padding: 10px;
+        border-top: 1px solid #ddd;
+        background: white;
+      }
+
+      .section-input textarea {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        resize: none;
+        min-height: 40px;
+        max-height: 100px;
+        font-size: 0.9em;
+      }
+
+      .section-input button {
+        margin-left: 10px;
+        padding: 8px 15px;
+        background-color: #3c97ff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9em;
+      }
+
+      #close-chat {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        z-index: 10;
+        color: white;
+      }
+
+      /* Specific section styles */
+      .chat-section {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .summary-section {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .minutes-section {
+        grid-column: 1;
+        grid-row: 2;
+      }
+
+      .ai-section {
+        grid-column: 2;
+        grid-row: 2;
+      }
+
+      /* Message styles */
+      .message {
+        padding: 8px 12px;
+        border-radius: 4px;
+        margin-bottom: 5px;
+        word-wrap: break-word;
+        font-size: 0.9em;
+      }
+
+      .message.local {
+        background-color: #e3f2fd;
+      }
+
+      .message.remote {
+        background-color: #f1f1f1;
+      }
+
+      .message.ai {
+        background-color: #e8f5e9;
+        border-left: 3px solid #4caf50;
+      }
+
+      .message.transcription {
+        background-color: #fff3e0;
+        font-style: italic;
+        border-left: 3px solid #ff9800;
+      }
+
+      .meeting-time {
+        position: absolute;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 0.9em;
+      }
+
+      .connection-status {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 0.8em;
+      }
+
+      .connection-status.connected {
+        background: rgba(33, 21, 209, 0.7);
+      }
+
+      .connection-status.disconnected {
+        background: rgba(244, 67, 54, 0.7);
+      }
+
+      @media (max-width: 768px) {
+        .video-grid.chat-open {
+          margin-right: 0;
+        }
+
+        .side-panel {
+          width: 100%;
+        }
+
+        .panel-container {
+          grid-template-columns: 1fr;
+          grid-template-rows: repeat(4, 1fr);
+        }
+
+        .chat-section,
+        .summary-section,
+        .minutes-section,
+        .ai-section {
+          grid-column: 1;
+        }
+
+        .chat-section {
+          grid-row: 1;
+        }
+        .summary-section {
+          grid-row: 2;
+        }
+        .minutes-section {
+          grid-row: 3;
+        }
+        .ai-section {
+          grid-row: 4;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="meeting-container">
+      <div class="video-grid">
+        <div class="connection-status">Not Connected</div>
+        <video id="localVideo" autoplay muted></video>
+        <div class="meeting-time">00:00</div>
+        <div class="controls">
+          <button id="microphone" class="active">
+            <i data-lucide="mic"></i>
+          </button>
+          <button id="camera" class="active">
+            <i data-lucide="video"></i>
+          </button>
+          <button id="screen">
+            <i data-lucide="monitor"></i>
+          </button>
+          <button id="transcription">
+            <i data-lucide="mic-2"></i>
+          </button>
+          <button id="chat">
+            <i data-lucide="message-square"></i>
+          </button>
+          <button id="end-call" class="disabled">
+            <i data-lucide="phone-off"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="side-panel">
+        <button id="close-chat"><i data-lucide="x"></i></button>
+        <div class="panel-container">
+          <!-- Chat Section -->
+          <div class="panel-section chat-section">
+            <div class="section-header">
+              <h3>Chat</h3>
+              <div class="section-tabs">
+                <div class="section-tab active" data-tab="chat">Messages</div>
+                <div class="section-tab" data-tab="transcription">
+                  Transcript
+                </div>
+              </div>
+            </div>
+            <div class="section-content">
+              <div
+                id="chatMessages"
+                class="tab-content active"
+                data-tab="chat"
+                style="color: #111"
+              ></div>
+              <div
+                id="transcriptionMessages"
+                class="tab-content"
+                data-tab="transcription"
+                style="background-color: black"
+              ></div>
+            </div>
+            <div class="section-input">
+              <textarea
+                id="chatMessage"
+                placeholder="Type your message..."
+              ></textarea>
+              <button id="sendMessage">Send</button>
+            </div>
+          </div>
+
+          <!-- Summary Section -->
+          <div class="panel-section summary-section">
+            <div class="section-header">
+              <h3>Summary</h3>
+            </div>
+            <div class="section-content">
+              <div id="summaryContent"></div>
+            </div>
+            <div class="section-input">
+              <textarea
+                id="summaryInput"
+                placeholder="Add or edit summary..."
+              ></textarea>
+              <button id="saveSummary">Save</button>
+            </div>
+          </div>
+
+          <!-- Minutes Section -->
+          <div class="panel-section minutes-section">
+            <div class="section-header">
+              <h3>Meeting Minutes</h3>
+            </div>
+            <div class="section-content">
+              <div id="minutesContent"></div>
+            </div>
+            <div class="section-input">
+              <textarea
+                id="minutesInput"
+                placeholder="Add or edit meeting minutes..."
+              ></textarea>
+              <button id="saveMinutes">Save</button>
+            </div>
+          </div>
+
+          <!-- AI Assistant Section -->
+          <div class="panel-section ai-section">
+            <div class="section-header">
+              <h3>AI Assistant</h3>
+            </div>
+            <div class="section-content">
+              <div id="aiMessages"></div>
+            </div>
+            <div class="section-input">
+              <textarea
+                id="aiInput"
+                placeholder="Ask the AI assistant..."
+              ></textarea>
+              <button id="sendAIQuery">Ask</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./meeting.js"></script>
+  </body>
+</html>
